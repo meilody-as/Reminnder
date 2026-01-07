@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const CHAT_ID = "ISI_CHAT_ID_ANDA";
+const CHAT_ID = "ISI_CHAT_ID_ANDA"; // contoh: "123456789"
 
 (async () => {
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
