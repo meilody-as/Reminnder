@@ -182,77 +182,35 @@ button.danger{background:#dc2626}
 </div>
 
 <div id="toast" class="hidden"></div>
-let editIndex = null;
+  
 <script>
-/* ===== CONFIG ===== */
-const GITHUB_RAW =
-'https://raw.githubusercontent.com/meilody-as/Reminnder/main/reminders.json';
-
-/* ===== STATE ===== */
-let state = JSON.parse(localStorage.getItem('reminder_state') || 'null');
-let reminders = state?.items || [];
+let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
 let editIndex = null;
 
-/* ===== UI HELPERS ===== */
-function toast(msg){
-  const el=document.getElementById('toast');
-  el.textContent=msg;
-  el.classList.remove('hidden');
-  setTimeout(()=>el.classList.add('hidden'),2500);
-}
-function setStatus(type,text){
-  const el=document.getElementById('syncStatus');
-  el.className='sync '+type;
-  el.textContent=text;
+function save(){
+  localStorage.setItem('reminders', JSON.stringify(reminders));
 }
 
-/* ===== AUTO SYNC ===== */
-async function autoSync(){
-  try{
-    const r=await fetch(GITHUB_RAW,{cache:'no-store'});
-    if(!r.ok) throw 1;
-    const g=await r.json();
-    if(!state || new Date(g.updated_at)>new Date(state.updated_at)){
-      state=g;
-      reminders=g.items||[];
-      localStorage.setItem('reminder_state',JSON.stringify(state));
-      setStatus('synced','🟢 Synced GitHub');
-      toast('✅ Data berhasil disinkronkan');
-    }
-  }catch{
-    setStatus('local','🔵 Mode Lokal');
-  }
-  render();
-}
-
-/* ===== SAVE / EDIT ===== */
-function saveReminder(){
-  const data={
-    id: editIndex!==null ? reminders[editIndex].id : 'rem-'+Date.now(),
-    pemilik:pemilik.value,
-    kategori:kategori.value,
-    nama:nama.value,
-    start_date:start_date.value,
+function addReminder(){
+  reminders.push({
+    nama: nama.value,
+    kategori: kategori.value,
+    start_date: start_date.value,
+    due: due.value,
     periode:{
       value:Number(periode_value.value),
       unit:periode_unit.value
     },
-    custom_days:custom.value
+    custom_reminder: custom_days.value
       .split(',')
-      .map(x=>Number(x.trim()))
-      .filter(Boolean)
-  };
-
-  if(editIndex!==null){
-    reminders[editIndex]=data;
-    editIndex=null;
-    btnSave.textContent='➕ Tambah';
-    formCard.classList.remove('editing');
-  }else{
-    reminders.push(data);
-  }
-
-  saveLocal();
+      .map(d=>Number(d.trim()))
+      .filter(Boolean),
+    status:'pending',
+    completed_at:null,
+    last_sent:null
+  });
+  save();
+  clearForm();
   render();
 }
 
@@ -260,106 +218,112 @@ function editReminder(i){
   const r = reminders[i];
   editIndex = i;
 
-  pemilik.value = r.pemilik;
-  kategori.value = r.kategori;
   nama.value = r.nama;
-  identitas.value = r.identitas;
+  kategori.value = r.kategori;
+  start_date.value = r.start_date;
   due.value = r.due;
-
   periode_value.value = r.periode?.value || '';
   periode_unit.value = r.periode?.unit || 'bulan';
-
   custom_days.value = (r.custom_reminder || []).join(',');
 
-  document.getElementById('btnAdd').classList.add('hidden');
-  document.getElementById('btnUpdate').classList.remove('hidden');
+  btnAdd.classList.add('hidden');
+  btnUpdate.classList.remove('hidden');
+  document.getElementById('formTitle').textContent='✏️ Edit Reminder';
 }
 
-  function updateReminder(){
+function updateReminder(){
   if(editIndex === null) return;
 
   reminders[editIndex] = {
-    ...reminders[editIndex], // JAGA FIELD LAIN (history, status, dll)
-
-    pemilik: pemilik.value,
-    kategori: kategori.value,
+    ...reminders[editIndex],
     nama: nama.value,
-    identitas: identitas.value,
+    kategori: kategori.value,
+    start_date: start_date.value,
     due: due.value,
-
-    periode: {
-      value: Number(periode_value.value),
-      unit: periode_unit.value
+    periode:{
+      value:Number(periode_value.value),
+      unit:periode_unit.value
     },
-
     custom_reminder: custom_days.value
       .split(',')
-      .map(d => Number(d.trim()))
+      .map(d=>Number(d.trim()))
       .filter(Boolean)
   };
 
   editIndex = null;
-
-  document.getElementById('btnAdd').classList.remove('hidden');
-  document.getElementById('btnUpdate').classList.add('hidden');
-
   save();
+  clearForm();
   render();
 }
+
 function removeItem(i){
   if(confirm('Hapus reminder?')){
     reminders.splice(i,1);
-    saveLocal();
+    save();
     render();
   }
 }
 
-function saveLocal(){
-  state={updated_at:new Date().toISOString(),items:reminders};
-  localStorage.setItem('reminder_state',JSON.stringify(state));
-  setStatus('dirty','🟡 Perubahan belum di-upload');
+function markDone(i){
+  const r = reminders[i];
+  r.status='done';
+  r.completed_at=new Date().toISOString().slice(0,10);
+  autoGenerateNext(r);
+  save();
+  render();
 }
 
-/* ===== DOWNLOAD ===== */
-function download(){
-  const blob=new Blob(
-    [JSON.stringify({updated_at:new Date().toISOString(),items:reminders},null,2)],
-    {type:'application/json'}
-  );
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='reminders.json';
-  a.click();
-  toast('⬇️ File JSON siap di-upload ke GitHub');
+function autoGenerateNext(r){
+  if(!r.periode || !r.periode.value) return;
+
+  const d = new Date(r.due);
+  if(r.periode.unit==='bulan'){
+    d.setMonth(d.getMonth()+r.periode.value);
+  }
+  if(r.periode.unit==='tahun'){
+    d.setFullYear(d.getFullYear()+r.periode.value);
+  }
+  r.due=d.toISOString().slice(0,10);
+  r.status='pending';
+  r.last_sent=null;
 }
 
-/* ===== RENDER ===== */
+function clearForm(){
+  nama.value='';
+  start_date.value='';
+  due.value='';
+  periode_value.value='';
+  custom_days.value='';
+  btnAdd.classList.remove('hidden');
+  btnUpdate.classList.add('hidden');
+  document.getElementById('formTitle').textContent='➕ Tambah Reminder';
+}
+
 function render(){
   const list=document.getElementById('list');
   list.innerHTML='<h3>📋 Daftar Reminder</h3>';
-
   reminders.forEach((r,i)=>{
     list.innerHTML+=`
-    <div class="list-item">
-      <span class="badge ${r.kategori}">${r.kategori}</span><br>
-      <b>${r.nama}</b><br>
-      👤 ${r.pemilik}<br>
-      📅 Mulai: ${r.start_date}<br>
-      ⏱️ Periode: ${r.periode.value} ${r.periode.unit}<br>
-      🔔 Reminder: ${(r.custom_days||[]).join(', ')} hari<br>
-      <button class="edit" onclick="editReminder(${i})">✏️ Edit</button>
-      <button class="danger" onclick="removeItem(${i})">🗑️ Hapus</button>
-      <button onclick="markDone(i)">✅ Selesai</button>
-    </div>`;
+      <div class="list-item">
+        <span class="badge">${r.kategori}</span><br>
+        <b>${r.nama}</b><br>
+        📅 ${r.due}<br>
+        ⏱️ ${r.periode?.value||'-'} ${r.periode?.unit||''}<br>
+
+        <button class="edit" onclick="editReminder(${i})">✏️ Edit</button>
+        <button class="success" onclick="markDone(${i})">✅ Selesai</button>
+        <button class="danger" onclick="removeItem(${i})">🗑️ Hapus</button>
+      </div>
+    `;
   });
 }
 
-/* ===== INIT ===== */
-autoSync();
+render();
 </script>
 
 </body>
 </html>
+
 
 
 
