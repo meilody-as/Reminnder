@@ -277,15 +277,13 @@ button.action-btn{margin-top: 5px;}
       const data = await response.json();
       reminders = data.record || []; 
       
-      // Pembersihan Data Agresif: Hapus item yang tidak valid/null
+      // Pembersihan Data Agresif
       reminders = reminders.filter(r => r && typeof r === 'object');
 
-      // Perbaikan Data Kategori: Jika kategori bukan string, ubah jadi "Lainnya"
+      // Perbaikan Data Kategori
       reminders = reminders.map(r => {
-        if (typeof r.kategori !== 'string') {
-          r.kategori = 'Lainnya'; 
-        }
-        if (!r.nama) r.nama = "Tanpa Nama"; // Safety Check nama
+        if (typeof r.kategori !== 'string') r.kategori = 'Lainnya'; 
+        if (!r.nama) r.nama = "Tanpa Nama"; 
         return r;
       });
       
@@ -316,7 +314,6 @@ button.action-btn{margin-top: 5px;}
       if (!response.ok) throw new Error("Gagal menyimpan");
       
       updateStatus(true, "🟢 Berhasil Disimpan");
-      showToast("✅ Tersimpan di Cloud");
     } catch (error) {
       console.error(error);
       updateStatus(false, "🔴 Gagal Simpan");
@@ -368,8 +365,9 @@ button.action-btn{margin-top: 5px;}
       showToast("✅ Ditambahkan");
     }
 
-    saveData();
+    saveData(); // Simpan ke server
     resetForm();
+    renderList(); // PERBAIKAN: Refresh tampilan langsung!
   }
 
   function markDone(i) {
@@ -384,6 +382,7 @@ button.action-btn{margin-top: 5px;}
       showToast("✅ Selesai & Dihapus");
     }
     saveData();
+    renderList(); // PERBAIKAN: Refresh tampilan
   }
 
   function deleteReminder(i) {
@@ -391,12 +390,17 @@ button.action-btn{margin-top: 5px;}
       reminders.splice(i, 1);
       saveData();
       showToast("🗑️ Dihapus");
+      renderList(); // PERBAIKAN: Refresh tampilan
     }
   }
 
   function editReminder(i) {
     const r = reminders[i];
     editIndex = i;
+    
+    // Scroll ke form agar nyaman
+    document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+
     els.pemilik.value = r.pemilik || '';
     els.kategori.value = r.kategori || 'Lainnya';
     els.nama.value = r.nama || '';
@@ -408,7 +412,6 @@ button.action-btn{margin-top: 5px;}
     els.formTitle.textContent = "✏️ Edit Reminder";
     els.btnSave.textContent = "💾 Simpan Perubahan";
     els.btnCancel.classList.remove('hidden');
-    document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
   }
 
   function resetForm() {
@@ -436,11 +439,8 @@ button.action-btn{margin-top: 5px;}
     return d.toISOString().slice(0, 10);
   }
 
-  // --- FIX UTAMA: CHECKING TIPE DATA ---
   function getCategoryClass(kat) {
-    // Jika input bukan tipe string (bisa object, array, null), langsung kembalikan default
     if (typeof kat !== 'string') return 'bg-lainnya';
-    // Jika string kosong
     if (kat === '') return 'bg-lainnya';
 
     if (kat.includes('SIM')) return 'bg-sim';
@@ -469,11 +469,10 @@ button.action-btn{margin-top: 5px;}
     const sorted = [...reminders].sort((a, b) => new Date(a.due) - new Date(b.due));
 
     sorted.forEach((r) => {
-      // Safety Check
       if (!r || !r.nama) return;
 
       const originalIndex = reminders.indexOf(r);
-      const badgeClass = getCategoryClass(r.kategori); // Kini aman karena typeof check
+      const badgeClass = getCategoryClass(r.kategori);
       
       const item = document.createElement('div');
       item.className = 'list-item';
@@ -522,6 +521,7 @@ button.action-btn{margin-top: 5px;}
         if (Array.isArray(data)) {
           reminders = data;
           saveData();
+          renderList(); // PERBAIKAN: Refresh tampilan setelah upload
           showToast("✅ Data direstore ke Cloud");
         }
       } catch (err) { alert("File salah"); }
@@ -530,7 +530,7 @@ button.action-btn{margin-top: 5px;}
     input.value = '';
   }
 
-  // Jalankan
+  // Jalankan pertama kali
   fetchData();
 
 </script>
