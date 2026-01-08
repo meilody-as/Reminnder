@@ -31,6 +31,7 @@ background:#111;color:#fff;padding:10px 16px;border-radius:20px}
 .hidden{display:none}
 .list-item{border-bottom:1px solid #eee;padding:10px 0}
 .editing{background:#fff7cc}
+.flex{display:flex;gap:8px}
 </style>
 </head>
 
@@ -41,7 +42,11 @@ background:#111;color:#fff;padding:10px 16px;border-radius:20px}
 
 <div class="card" id="formCard">
   <h3>➕ / ✏️ Reminder</h3>
-  <input id="pemilik" placeholder="Pemilik">
+
+  <label>👤 Pemilik</label>
+  <input id="pemilik" placeholder="Contoh: Saya / Istri">
+
+  <label>🏷️ Kategori</label>
   <select id="kategori">
     <option>SIM C</option>
     <option>SIM C Isteri</option>
@@ -50,11 +55,27 @@ background:#111;color:#fff;padding:10px 16px;border-radius:20px}
     <option>Pajak Mobil</option>
     <option>Oli Motor</option>
     <option>Service Mobil</option>
+    <option>Lainnya</option>
   </select>
-  <input id="nama" placeholder="Nama / Keterangan">
-  <input id="due" type="date">
-  <input id="periode" type="number" placeholder="Periode (bulan) contoh: 60 / 3">
-  <input id="custom" placeholder="Custom reminder hari (contoh: 30,7,1)">
+
+  <label>📄 Nama / Keterangan</label>
+  <input id="nama" placeholder="Contoh: SIM C / Ganti Oli Motor">
+
+  <label>📅 Tanggal Terbit / Mulai</label>
+  <input id="start_date" type="date">
+
+  <label>⏱️ Periode</label>
+  <div class="flex">
+    <input id="periode_value" type="number" placeholder="Contoh: 5 / 3">
+    <select id="periode_unit">
+      <option value="bulan">Bulan</option>
+      <option value="tahun">Tahun</option>
+    </select>
+  </div>
+
+  <label>🔔 Reminder (hari sebelum jatuh tempo)</label>
+  <input id="custom" placeholder="Contoh: 30,7,1">
+
   <button id="btnSave" onclick="saveReminder()">➕ Tambah</button>
 </div>
 
@@ -76,7 +97,7 @@ let state = JSON.parse(localStorage.getItem('reminder_state') || 'null');
 let reminders = state?.items || [];
 let editIndex = null;
 
-/* ===== UI ===== */
+/* ===== UI HELPERS ===== */
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;
@@ -100,7 +121,7 @@ async function autoSync(){
       reminders=g.items||[];
       localStorage.setItem('reminder_state',JSON.stringify(state));
       setStatus('synced','🟢 Synced GitHub');
-      toast('✅ Data sync');
+      toast('✅ Data berhasil disinkronkan');
     }
   }catch{
     setStatus('local','🔵 Mode Lokal');
@@ -115,8 +136,11 @@ function saveReminder(){
     pemilik:pemilik.value,
     kategori:kategori.value,
     nama:nama.value,
-    due:due.value,
-    periode_bulan:Number(periode.value)||null,
+    start_date:start_date.value,
+    periode:{
+      value:Number(periode_value.value),
+      unit:periode_unit.value
+    },
     custom_days:custom.value
       .split(',')
       .map(x=>Number(x.trim()))
@@ -142,8 +166,9 @@ function editReminder(i){
   pemilik.value=r.pemilik;
   kategori.value=r.kategori;
   nama.value=r.nama;
-  due.value=r.due;
-  periode.value=r.periode_bulan||'';
+  start_date.value=r.start_date;
+  periode_value.value=r.periode?.value||'';
+  periode_unit.value=r.periode?.unit||'bulan';
   custom.value=(r.custom_days||[]).join(',');
   btnSave.textContent='💾 Update';
   formCard.classList.add('editing');
@@ -173,21 +198,22 @@ function download(){
   a.href=URL.createObjectURL(blob);
   a.download='reminders.json';
   a.click();
-  toast('⬇️ JSON siap di-upload');
+  toast('⬇️ File JSON siap di-upload ke GitHub');
 }
 
 /* ===== RENDER ===== */
 function render(){
   const list=document.getElementById('list');
   list.innerHTML='<h3>📋 Daftar Reminder</h3>';
+
   reminders.forEach((r,i)=>{
     list.innerHTML+=`
     <div class="list-item">
       <span class="badge ${r.kategori}">${r.kategori}</span><br>
       <b>${r.nama}</b><br>
       👤 ${r.pemilik}<br>
-      📅 ${r.due}<br>
-      ⏱️ Periode: ${r.periode_bulan||'-'} bulan<br>
+      📅 Mulai: ${r.start_date}<br>
+      ⏱️ Periode: ${r.periode.value} ${r.periode.unit}<br>
       🔔 Reminder: ${(r.custom_days||[]).join(', ')} hari<br>
       <button class="edit" onclick="editReminder(${i})">✏️ Edit</button>
       <button class="danger" onclick="removeItem(${i})">🗑️ Hapus</button>
@@ -201,5 +227,3 @@ autoSync();
 
 </body>
 </html>
-
-
