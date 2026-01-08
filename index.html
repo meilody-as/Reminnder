@@ -184,8 +184,18 @@
       a.click();
       toast('⬇️ JSON siap di-upload');
     }
+
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/Reminnder/service-worker.js')
+      .then(reg => console.log('SW registered', reg.scope))
+      .catch(err => console.error('SW failed', err));
+    });
+    }
   </script>
 
 </body>
 
 </html>
+
