@@ -233,7 +233,6 @@ button.action-btn{margin-top: 5px;}
   
 <script>
   // --- KONFIGURASI JSONBIN ---
-  // PASTIKAN ANDA SUDAH MENGISI INI
   const BIN_ID = "6960389443b1c97be922ca7d"; 
   const MASTER_KEY = "$2a$10$tnj0y.KyjfojXatJ76wG6O16DUQ8/6f4qYEqa1hKQ42z/8ljlfNhC"; 
   // ---------------------------------
@@ -278,8 +277,17 @@ button.action-btn{margin-top: 5px;}
       const data = await response.json();
       reminders = data.record || []; 
       
-      // Perbaikan Data Kotor: Hapus item yang tidak valid/null
+      // Pembersihan Data Agresif: Hapus item yang tidak valid/null
       reminders = reminders.filter(r => r && typeof r === 'object');
+
+      // Perbaikan Data Kategori: Jika kategori bukan string, ubah jadi "Lainnya"
+      reminders = reminders.map(r => {
+        if (typeof r.kategori !== 'string') {
+          r.kategori = 'Lainnya'; 
+        }
+        if (!r.nama) r.nama = "Tanpa Nama"; // Safety Check nama
+        return r;
+      });
       
       updateStatus(true, "🟢 Data Tersinkronisasi");
       renderList();
@@ -428,10 +436,12 @@ button.action-btn{margin-top: 5px;}
     return d.toISOString().slice(0, 10);
   }
 
-  // --- PERBAIKAN FUNGSI INI ---
+  // --- FIX UTAMA: CHECKING TIPE DATA ---
   function getCategoryClass(kat) {
-    // Jika kat undefined atau kosong, kembalikan default 'bg-lainnya'
-    if (!kat) return 'bg-lainnya';
+    // Jika input bukan tipe string (bisa object, array, null), langsung kembalikan default
+    if (typeof kat !== 'string') return 'bg-lainnya';
+    // Jika string kosong
+    if (kat === '') return 'bg-lainnya';
 
     if (kat.includes('SIM')) return 'bg-sim';
     if (kat.includes('STNK')) return 'bg-stnk';
@@ -459,11 +469,11 @@ button.action-btn{margin-top: 5px;}
     const sorted = [...reminders].sort((a, b) => new Date(a.due) - new Date(b.due));
 
     sorted.forEach((r) => {
-      // SKIP JIKA DATA TIDAK VALID (Pencegahan Error)
+      // Safety Check
       if (!r || !r.nama) return;
 
       const originalIndex = reminders.indexOf(r);
-      const badgeClass = getCategoryClass(r.kategori);
+      const badgeClass = getCategoryClass(r.kategori); // Kini aman karena typeof check
       
       const item = document.createElement('div');
       item.className = 'list-item';
@@ -520,7 +530,7 @@ button.action-btn{margin-top: 5px;}
     input.value = '';
   }
 
-  // Jalankan pertama kali
+  // Jalankan
   fetchData();
 
 </script>
