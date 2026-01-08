@@ -1,19 +1,22 @@
-name: Reminder Telegram
+name: Reminder Otomatis
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 1 * * *' # tiap hari jam 08 WIB
   workflow_dispatch:
 
 jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
-    - run: npm install node-fetch@2
-    - run: node send.js
-      env:
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: npm install node-fetch
+
+      - run: node send.js
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
