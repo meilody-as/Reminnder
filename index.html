@@ -275,9 +275,19 @@ button.action-btn{margin-top: 5px;}
       if (!response.ok) throw new Error("Gagal mengambil data");
       
       const data = await response.json();
-      reminders = data.record || []; 
       
-      // Pembersihan Data Agresif
+      // --- PERBAIKAN UTAMA: VALIDASI ARRAY ---
+      // Pastikan data.record adalah Array, bukan Object
+      let rawData = data.record;
+
+      if (!Array.isArray(rawData)) {
+        console.warn("Data JSONBin tidak valid (bukan array). Resetting...");
+        rawData = []; 
+      }
+
+      reminders = rawData; 
+      
+      // Pembersihan Data
       reminders = reminders.filter(r => r && typeof r === 'object');
 
       // Perbaikan Data Kategori
@@ -292,7 +302,9 @@ button.action-btn{margin-top: 5px;}
     } catch (error) {
       console.error(error);
       updateStatus(false, "🔴 Error: " + error.message);
+      // Fallback ke lokal
       reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
+      if (!Array.isArray(reminders)) reminders = []; // Safety lokal juga
       renderList();
     }
   }
@@ -307,7 +319,7 @@ button.action-btn{margin-top: 5px;}
           'X-Master-Key': MASTER_KEY
         },
         body: JSON.stringify({
-          "record": reminders
+          "record": reminders // Selalu kirim sebagai Array
         })
       });
 
@@ -365,9 +377,9 @@ button.action-btn{margin-top: 5px;}
       showToast("✅ Ditambahkan");
     }
 
-    saveData(); // Simpan ke server
+    saveData();
     resetForm();
-    renderList(); // PERBAIKAN: Refresh tampilan langsung!
+    renderList();
   }
 
   function markDone(i) {
@@ -382,7 +394,7 @@ button.action-btn{margin-top: 5px;}
       showToast("✅ Selesai & Dihapus");
     }
     saveData();
-    renderList(); // PERBAIKAN: Refresh tampilan
+    renderList();
   }
 
   function deleteReminder(i) {
@@ -390,7 +402,7 @@ button.action-btn{margin-top: 5px;}
       reminders.splice(i, 1);
       saveData();
       showToast("🗑️ Dihapus");
-      renderList(); // PERBAIKAN: Refresh tampilan
+      renderList();
     }
   }
 
@@ -398,7 +410,6 @@ button.action-btn{margin-top: 5px;}
     const r = reminders[i];
     editIndex = i;
     
-    // Scroll ke form agar nyaman
     document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
 
     els.pemilik.value = r.pemilik || '';
@@ -521,7 +532,7 @@ button.action-btn{margin-top: 5px;}
         if (Array.isArray(data)) {
           reminders = data;
           saveData();
-          renderList(); // PERBAIKAN: Refresh tampilan setelah upload
+          renderList();
           showToast("✅ Data direstore ke Cloud");
         }
       } catch (err) { alert("File salah"); }
