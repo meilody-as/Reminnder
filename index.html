@@ -184,6 +184,17 @@ button.danger{background:#dc2626}
 <div id="toast" class="hidden"></div>
   
 <script>
+// === ELEMENT REFERENCES (WAJIB UNTUK MOBILE/PWA) ===
+const nama = document.getElementById('nama');
+const kategori = document.getElementById('kategori');
+const start_date = document.getElementById('start_date');
+const due = document.getElementById('due');
+const periode_value = document.getElementById('periode_value');
+const periode_unit = document.getElementById('periode_unit');
+const custom_days = document.getElementById('custom_days');
+
+const btnAdd = document.getElementById('btnAdd');
+const btnUpdate = document.getElementById('btnUpdate');  
 let reminders = JSON.parse(localStorage.getItem('reminders') || '[]');
 let editIndex = null;
 
@@ -323,6 +334,7 @@ render();
 
 </body>
 </html>
+
 
 
 
