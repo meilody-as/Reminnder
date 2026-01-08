@@ -1,201 +1,199 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>📅 Reminder Pribadi</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#2563eb">
-  <style>
-    body {
-      font-family: system-ui;
-      background: #f4f6f8;
-      padding: 16px
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminder Pribadi</title>
 
-    .card {
-      background: #fff;
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 16px
-    }
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
 
-    input,
-    select,
-    button {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0 12px
-    }
+<style>
+body{font-family:sans-serif;background:#f4f6f8;margin:0;padding:16px}
+h2{text-align:center}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+input,select,button{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #ccc}
+button{background:#2563eb;color:#fff;font-weight:bold;border:none}
+button.danger{background:#dc2626}
+button.edit{background:#f59e0b}
+.badge{display:inline-block;padding:4px 8px;border-radius:8px;color:#fff;font-size:12px}
+.SIM{background:#16a34a}
+.STNK{background:#0284c7}
+.Oli{background:#9333ea}
 
-    button {
-      background: #2563eb;
-      color: #fff;
-      border: none;
-      border-radius: 8px
-    }
+#syncStatus{font-size:14px;margin-bottom:8px}
+.sync.synced{color:green}
+.sync.dirty{color:orange}
+.sync.local{color:blue}
 
-    button.danger {
-      background: #dc2626
-    }
-
-    .badge {
-      font-size: 11px;
-      background: #e0e7ff;
-      padding: 3px 8px;
-      border-radius: 999px
-    }
-
-    #toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #111827;
-      color: #fff;
-      padding: 10px 14px;
-      border-radius: 8px
-    }
-
-    .hidden {
-      display: none
-    }
-  </style>
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+background:#111;color:#fff;padding:10px 16px;border-radius:20px}
+.hidden{display:none}
+.list-item{border-bottom:1px solid #eee;padding:10px 0}
+.editing{background:#fff7cc}
+</style>
 </head>
 
 <body>
 
-  <h2>📅 Reminder Pribadi</h2>
+<h2>🔔 Reminder Pribadi</h2>
+<div id="syncStatus" class="sync">🔵 Mode Lokal</div>
 
-  <div class="card">
-    <input id="pemilik" placeholder="Pemilik (Saya/Istri)">
-    <select id="kategori">
-      <option>SIM C</option>
-      <option>SIM C Isteri</option>
-      <option>SIM A</option>
-      <option>STNK Motor</option>
-      <option>Ganti Oli Motor</option>
-      <option>STNK Mobil</option>
-      <option>Service Mobil</option>
-      <option>Lainnya</option>
-    </select>
+<div class="card" id="formCard">
+  <h3>➕ / ✏️ Reminder</h3>
+  <input id="pemilik" placeholder="Pemilik">
+  <select id="kategori">
+    <option>SIM</option>
+    <option>STNK</option>
+    <option>Oli</option>
+  </select>
+  <input id="nama" placeholder="Nama / Keterangan">
+  <input id="due" type="date">
+  <input id="periode" type="number" placeholder="Periode (bulan) contoh: 60 / 3">
+  <input id="custom" placeholder="Custom reminder hari (contoh: 30,7,1)">
+  <button id="btnSave" onclick="saveReminder()">➕ Tambah</button>
+</div>
 
-    <input id="nama" placeholder="Nama Reminder">
-    <input id="identitas" placeholder="Identitas (No SIM / Plat)">
+<div class="card" id="list"></div>
 
-    <label>📌 Tanggal Terbit / Terakhir</label>
-    <input id="start" type="date">
+<div class="card">
+  <button onclick="download()">⬇️ Download JSON</button>
+</div>
 
-    <label>⏳ Periode</label>
-    <input id="periodValue" type="number" placeholder="Contoh: 5">
-    <select id="periodUnit">
-      <option value="year">Tahun</option>
-      <option value="month">Bulan</option>
-    </select>
+<div id="toast" class="hidden"></div>
 
-    <label>🔔 Kirim notifikasi (hari sebelum)</label>
-    <input id="notify" placeholder="Contoh: 30,7,1">
+<script>
+/* ===== CONFIG ===== */
+const GITHUB_RAW =
+'https://raw.githubusercontent.com/meilody-as/Reminnder/main/reminders.json';
 
-    <label>🔁 Mode Reminder</label>
-    <select id="repeat">
-      <option value="none">Tidak</option>
-      <option value="daily_after">Harian setelah H-…</option>
-    </select>
+/* ===== STATE ===== */
+let state = JSON.parse(localStorage.getItem('reminder_state') || 'null');
+let reminders = state?.items || [];
+let editIndex = null;
 
-    <input id="chat" placeholder="Chat ID Telegram">
-    <button onclick="addReminder()">➕ Tambah Reminder</button>
-  </div>
+/* ===== UI ===== */
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.remove('hidden');
+  setTimeout(()=>el.classList.add('hidden'),2500);
+}
+function setStatus(type,text){
+  const el=document.getElementById('syncStatus');
+  el.className='sync '+type;
+  el.textContent=text;
+}
 
-  <div class="card">
-    <button onclick="download()">⬇️ Download JSON</button>
-  </div>
-
-  <div id="list" class="card"></div>
-  <div id="toast" class="hidden"></div>
-
-  <script>
-    let reminders = [];
-
-    function toast(m) {
-      const t = document.getElementById('toast');
-      t.textContent = m;
-      t.classList.remove('hidden');
-      setTimeout(() => t.classList.add('hidden'), 2000);
+/* ===== AUTO SYNC ===== */
+async function autoSync(){
+  try{
+    const r=await fetch(GITHUB_RAW,{cache:'no-store'});
+    if(!r.ok) throw 1;
+    const g=await r.json();
+    if(!state || new Date(g.updated_at)>new Date(state.updated_at)){
+      state=g;
+      reminders=g.items||[];
+      localStorage.setItem('reminder_state',JSON.stringify(state));
+      setStatus('synced','🟢 Synced GitHub');
+      toast('✅ Data sync');
     }
+  }catch{
+    setStatus('local','🔵 Mode Lokal');
+  }
+  render();
+}
 
-    function calcDue(start, val, unit) {
-      const d = new Date(start);
-      if (unit === 'year') d.setFullYear(d.getFullYear() + val);
-      if (unit === 'month') d.setMonth(d.getMonth() + val);
-      return d.toISOString().slice(0, 10);
-    }
+/* ===== SAVE / EDIT ===== */
+function saveReminder(){
+  const data={
+    id: editIndex!==null ? reminders[editIndex].id : 'rem-'+Date.now(),
+    pemilik:pemilik.value,
+    kategori:kategori.value,
+    nama:nama.value,
+    due:due.value,
+    periode_bulan:Number(periode.value)||null,
+    custom_days:custom.value
+      .split(',')
+      .map(x=>Number(x.trim()))
+      .filter(Boolean)
+  };
 
-    function addReminder() {
-      const days = notify.value.split(',')
-        .map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+  if(editIndex!==null){
+    reminders[editIndex]=data;
+    editIndex=null;
+    btnSave.textContent='➕ Tambah';
+    formCard.classList.remove('editing');
+  }else{
+    reminders.push(data);
+  }
 
-      if (!nama.value || !start.value || !periodValue.value) {
-        toast('⚠️ Data belum lengkap');
-        return;
-      }
+  saveLocal();
+  render();
+}
 
-      const due = calcDue(start.value, Number(periodValue.value), periodUnit.value);
+function editReminder(i){
+  const r=reminders[i];
+  editIndex=i;
+  pemilik.value=r.pemilik;
+  kategori.value=r.kategori;
+  nama.value=r.nama;
+  due.value=r.due;
+  periode.value=r.periode_bulan||'';
+  custom.value=(r.custom_days||[]).join(',');
+  btnSave.textContent='💾 Update';
+  formCard.classList.add('editing');
+}
 
-      reminders.push({
-        pemilik: pemilik.value,
-        kategori: kategori.value,
-        nama: nama.value,
-        identitas: identitas.value,
-        start: start.value,
-        period: { value: Number(periodValue.value), unit: periodUnit.value },
-        due,
-        notify_days: days,
-        repeat: repeat.value,
-        chat: chat.value
-      });
+function removeItem(i){
+  if(confirm('Hapus reminder?')){
+    reminders.splice(i,1);
+    saveLocal();
+    render();
+  }
+}
 
-      render();
-      toast('✅ Reminder ditambahkan');
-    }
+function saveLocal(){
+  state={updated_at:new Date().toISOString(),items:reminders};
+  localStorage.setItem('reminder_state',JSON.stringify(state));
+  setStatus('dirty','🟡 Perubahan belum di-upload');
+}
 
-    function render() {
-      const l = document.getElementById('list');
-      l.innerHTML = '<h3>📋 Daftar Reminder</h3>';
-      reminders.forEach((r, i) => {
-        l.innerHTML += `
-    <div>
-      <span class="badge">${r.kategori}</span>
+/* ===== DOWNLOAD ===== */
+function download(){
+  const blob=new Blob(
+    [JSON.stringify({updated_at:new Date().toISOString(),items:reminders},null,2)],
+    {type:'application/json'}
+  );
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='reminders.json';
+  a.click();
+  toast('⬇️ JSON siap di-upload');
+}
+
+/* ===== RENDER ===== */
+function render(){
+  const list=document.getElementById('list');
+  list.innerHTML='<h3>📋 Daftar Reminder</h3>';
+  reminders.forEach((r,i)=>{
+    list.innerHTML+=`
+    <div class="list-item">
+      <span class="badge ${r.kategori}">${r.kategori}</span><br>
       <b>${r.nama}</b><br>
-      📅 Due: ${r.due}<br>
-      🔁 Per ${r.period.value} ${r.period.unit}<br>
-      🔔 H-${r.notify_days.join(', H-')}<br>
-      <button class="danger" onclick="reminders.splice(${i},1);render()">Hapus</button>
-    </div><hr>`;
-      });
-    }
+      👤 ${r.pemilik}<br>
+      📅 ${r.due}<br>
+      ⏱️ Periode: ${r.periode_bulan||'-'} bulan<br>
+      🔔 Reminder: ${(r.custom_days||[]).join(', ')} hari<br>
+      <button class="edit" onclick="editReminder(${i})">✏️ Edit</button>
+      <button class="danger" onclick="removeItem(${i})">🗑️ Hapus</button>
+    </div>`;
+  });
+}
 
-    function download() {
-      const data = { updated_at: new Date().toISOString(), items: reminders };
-      const b = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(b);
-      a.download = 'reminders.json';
-      a.click();
-      toast('⬇️ JSON siap di-upload');
-    }
-
-    if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/Reminnder/service-worker.js')
-      .then(reg => console.log('SW registered', reg.scope))
-      .catch(err => console.error('SW failed', err));
-    });
-    }
-  </script>
+/* ===== INIT ===== */
+autoSync();
+</script>
 
 </body>
-
 </html>
-
