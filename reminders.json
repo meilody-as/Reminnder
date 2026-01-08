@@ -1,31 +1,17 @@
 {
-  "updated_at": "2026-01-08T00:00:00Z",
-  "items": [
-    {
-      "pemilik": "Meilody",
-      "kategori": "SIM C",
-      "nama": "Meilody",
-      "identitas": "23317705000028",
-      "start_date": "2024-05-23",
-      "periode": {
-        "value": 5,
-        "unit": "tahun"
-      },
-      "notify_before": [30, 7, 1],
-      "chat_id": "8568224727"
-    },
-    {
-      "pemilik": "Saya",
-      "kategori": "Oli",
-      "nama": "Ganti Oli Motor",
-      "identitas": "B 1234 ABC",
-      "start_date": "2025-10-01",
-      "periode": {
-        "value": 3,
-        "unit": "bulan"
-      },
-      "notify_before": [7, 1],
-      "chat_id": "8395291891"
-    }
-  ]
+  "nama": "Ganti Oli Motor",
+  "kategori": "Servis",
+  "start_date": "2026-01-01",
+  "due": "2026-04-01",
+
+  "periode": {
+    "value": 3,
+    "unit": "bulan"
+  },
+
+  "custom_reminder": [30,7,1],
+
+  "status": "pending",
+  "last_sent": null,
+  "completed_at": null
 }
