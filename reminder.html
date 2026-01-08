@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>📅 Reminder Pribadi</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <style>
+    body {
+      font-family: system-ui;
+      background: #f4f6f8;
+      padding: 16px
+    }
+
+    .card {
+      background: #fff;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0 12px
+    }
+
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px
+    }
+
+    button.danger {
+      background: #dc2626
+    }
+
+    .badge {
+      font-size: 11px;
+      background: #e0e7ff;
+      padding: 3px 8px;
+      border-radius: 999px
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px
+    }
+
+    .hidden {
+      display: none
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>📅 Reminder Pribadi</h2>
+
+  <div class="card">
+    <input id="pemilik" placeholder="Pemilik (Saya/Istri)">
+    <select id="kategori">
+      <option>SIM C</option>
+      <option>SIM C Isteri</option>
+      <option>SIM A</option>
+      <option>STNK Motor</option>
+      <option>Ganti Oli Motor</option>
+      <option>STNK Mobil</option>
+      <option>Service Mobil</option>
+      <option>Lainnya</option>
+    </select>
+
+    <input id="nama" placeholder="Nama Reminder">
+    <input id="identitas" placeholder="Identitas (No SIM / Plat)">
+
+    <label>📌 Tanggal Terbit / Terakhir</label>
+    <input id="start" type="date">
+
+    <label>⏳ Periode</label>
+    <input id="periodValue" type="number" placeholder="Contoh: 5">
+    <select id="periodUnit">
+      <option value="year">Tahun</option>
+      <option value="month">Bulan</option>
+    </select>
+
+    <label>🔔 Kirim notifikasi (hari sebelum)</label>
+    <input id="notify" placeholder="Contoh: 30,7,1">
+
+    <label>🔁 Mode Reminder</label>
+    <select id="repeat">
+      <option value="none">Tidak</option>
+      <option value="daily_after">Harian setelah H-…</option>
+    </select>
+
+    <input id="chat" placeholder="Chat ID Telegram">
+    <button onclick="addReminder()">➕ Tambah Reminder</button>
+  </div>
+
+  <div class="card">
+    <button onclick="download()">⬇️ Download JSON</button>
+  </div>
+
+  <div id="list" class="card"></div>
+  <div id="toast" class="hidden"></div>
+
+  <script>
+    let reminders = [];
+
+    function toast(m) {
+      const t = document.getElementById('toast');
+      t.textContent = m;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2000);
+    }
+
+    function calcDue(start, val, unit) {
+      const d = new Date(start);
+      if (unit === 'year') d.setFullYear(d.getFullYear() + val);
+      if (unit === 'month') d.setMonth(d.getMonth() + val);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function addReminder() {
+      const days = notify.value.split(',')
+        .map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+
+      if (!nama.value || !start.value || !periodValue.value) {
+        toast('⚠️ Data belum lengkap');
+        return;
+      }
+
+      const due = calcDue(start.value, Number(periodValue.value), periodUnit.value);
+
+      reminders.push({
+        pemilik: pemilik.value,
+        kategori: kategori.value,
+        nama: nama.value,
+        identitas: identitas.value,
+        start: start.value,
+        period: { value: Number(periodValue.value), unit: periodUnit.value },
+        due,
+        notify_days: days,
+        repeat: repeat.value,
+        chat: chat.value
+      });
+
+      render();
+      toast('✅ Reminder ditambahkan');
+    }
+
+    function render() {
+      const l = document.getElementById('list');
+      l.innerHTML = '<h3>📋 Daftar Reminder</h3>';
+      reminders.forEach((r, i) => {
+        l.innerHTML += `
+    <div>
+      <span class="badge">${r.kategori}</span>
+      <b>${r.nama}</b><br>
+      📅 Due: ${r.due}<br>
+      🔁 Per ${r.period.value} ${r.period.unit}<br>
+      🔔 H-${r.notify_days.join(', H-')}<br>
+      <button class="danger" onclick="reminders.splice(${i},1);render()">Hapus</button>
+    </div><hr>`;
+      });
+    }
+
+    function download() {
+      const data = { updated_at: new Date().toISOString(), items: reminders };
+      const b = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = 'reminders.json';
+      a.click();
+      toast('⬇️ JSON siap di-upload');
+    }
+  </script>
+
+</body>
+
+</html>
