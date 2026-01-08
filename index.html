@@ -182,7 +182,7 @@ button.danger{background:#dc2626}
 </div>
 
 <div id="toast" class="hidden"></div>
-
+let editIndex = null;
 <script>
 /* ===== CONFIG ===== */
 const GITHUB_RAW =
@@ -257,19 +257,55 @@ function saveReminder(){
 }
 
 function editReminder(i){
-  const r=reminders[i];
-  editIndex=i;
-  pemilik.value=r.pemilik;
-  kategori.value=r.kategori;
-  nama.value=r.nama;
-  start_date.value=r.start_date;
-  periode_value.value=r.periode?.value||'';
-  periode_unit.value=r.periode?.unit||'bulan';
-  custom.value=(r.custom_days||[]).join(',');
-  btnSave.textContent='💾 Update';
-  formCard.classList.add('editing');
+  const r = reminders[i];
+  editIndex = i;
+
+  pemilik.value = r.pemilik;
+  kategori.value = r.kategori;
+  nama.value = r.nama;
+  identitas.value = r.identitas;
+  due.value = r.due;
+
+  periode_value.value = r.periode?.value || '';
+  periode_unit.value = r.periode?.unit || 'bulan';
+
+  custom_days.value = (r.custom_reminder || []).join(',');
+
+  document.getElementById('btnAdd').classList.add('hidden');
+  document.getElementById('btnUpdate').classList.remove('hidden');
 }
 
+  function updateReminder(){
+  if(editIndex === null) return;
+
+  reminders[editIndex] = {
+    ...reminders[editIndex], // JAGA FIELD LAIN (history, status, dll)
+
+    pemilik: pemilik.value,
+    kategori: kategori.value,
+    nama: nama.value,
+    identitas: identitas.value,
+    due: due.value,
+
+    periode: {
+      value: Number(periode_value.value),
+      unit: periode_unit.value
+    },
+
+    custom_reminder: custom_days.value
+      .split(',')
+      .map(d => Number(d.trim()))
+      .filter(Boolean)
+  };
+
+  editIndex = null;
+
+  document.getElementById('btnAdd').classList.remove('hidden');
+  document.getElementById('btnUpdate').classList.add('hidden');
+
+  save();
+  render();
+}
 function removeItem(i){
   if(confirm('Hapus reminder?')){
     reminders.splice(i,1);
@@ -324,5 +360,6 @@ autoSync();
 
 </body>
 </html>
+
 
 
