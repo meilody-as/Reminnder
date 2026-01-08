@@ -1,7 +1,8 @@
 {
   "name": "Reminder Pribadi",
   "short_name": "Reminder",
-  "start_url": "./reminder.html",
+  "start_url": "/Reminnder/",
+  "scope": "/Reminnder/",
   "display": "standalone",
   "background_color": "#f4f6f8",
   "theme_color": "#2563eb",
@@ -19,3 +20,4 @@
     }
   ]
 }
+
