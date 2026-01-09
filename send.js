@@ -1,20 +1,10 @@
 const axios = require('axios');
 
-// 1. Ambil Variabel Lingkungan
 const BIN_ID = process.env.BIN_ID;
 const MASTER_KEY = process.env.MASTER_KEY;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
-console.log("=== SCRIPT BERJALAN ===");
-console.log("Cek ID:", BIN_ID); // Akan menulis "undefined" jika kosong
-
-if (!BIN_ID || BIN_ID === "ISI_DENGAN_BIN_ID_ANDA") {
-    console.error("❌ ERROR: BIN_ID TIDAK DITEMUKAN ATAU BELUM DIISI!");
-    process.exit(1);
-}
-
-// Fungsi Hitung Hari
 const getDaysDifference = (dateString) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -32,10 +22,20 @@ async function sendReminders() {
       headers: { 'X-Master-Key': MASTER_KEY }
     });
 
-    const reminders = response.data.record || [];
-    console.log(`Total reminder ditemukan: ${reminders.length}`); // INI YANG DICARI
+    // --- PERBAIKAN UTAMA: SAFETY CHECK DATA ---
+    let rawData = response.data.record;
 
-    // Looping
+    // Cek apakah data berbentuk Array. Jika bukan, jadikan Array Kosong.
+    if (!Array.isArray(rawData)) {
+        console.warn("⚠️ Data Format Salah (Bukan Array). Direset ke kosong.");
+        rawData = []; 
+    }
+    
+    const reminders = rawData;
+    // -----------------------------------------
+
+    console.log(`Total reminder ditemukan: ${reminders.length}`);
+
     for (const r of reminders) {
       if (!r.due) continue;
       const daysLeft = getDaysDifference(r.due);
