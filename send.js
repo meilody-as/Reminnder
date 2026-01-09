@@ -16,25 +16,16 @@ const getDaysDifference = (dateString) => {
 
 async function sendReminders() {
   try {
-    console.log("Mengambil data dari JSONBin...");
-    
+    console.log("Mengambil data...");
     const response = await axios.get(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
       headers: { 'X-Master-Key': MASTER_KEY }
     });
 
-    // --- PERBAIKAN UTAMA: SAFETY CHECK DATA ---
     let rawData = response.data.record;
-
-    // Cek apakah data berbentuk Array. Jika bukan, jadikan Array Kosong.
-    if (!Array.isArray(rawData)) {
-        console.warn("⚠️ Data Format Salah (Bukan Array). Direset ke kosong.");
-        rawData = []; 
-    }
-    
+    if (!Array.isArray(rawData)) rawData = []; 
     const reminders = rawData;
-    // -----------------------------------------
 
-    console.log(`Total reminder ditemukan: ${reminders.length}`);
+    console.log(`Total reminder: ${reminders.length}`);
 
     for (const r of reminders) {
       if (!r.due) continue;
@@ -42,21 +33,31 @@ async function sendReminders() {
       const customDays = r.custom_reminder || [];
 
       if (daysLeft === 0 || customDays.includes(daysLeft)) {
-        const message = `🔔 PENGINGAT: ${r.nama} (Hari: ${r.due}, Tersisa: ${daysLeft} hari)`;
+        const message = `🔔 TES TELEGRAM: ${r.nama} (Tersisa: ${daysLeft} hari)`;
         
-        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        console.log(`Mencoba kirim ke Chat ID: ${CHAT_ID}...`);
+        
+        // Kirim ke Telegram & Simpan Hasil Balasan
+        const res = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           chat_id: CHAT_ID,
           text: message
         });
 
-        console.log(`✅ Terkirim: ${r.nama}`);
+        // --- KUNCI DIAGNOSA ---
+        // Kita lihat apa yang dibalas Telegram
+        console.log("🔴 JAWABAN TELEGRAM:", JSON.stringify(res.data));
+        
+        if (res.data.ok) {
+            console.log(`✅ Terkirim: ${r.nama}`);
+        } else {
+            console.log(`❌ GAGAL TELEGRAM: ${res.data.description}`);
+        }
       }
     }
     console.log("Selesai.");
 
   } catch (error) {
-    console.error("❌ GAGAL MENGAMBIL DATA JSONBIN:");
-    console.error(error.message); 
+    console.error("Error:", error.message); 
   }
 }
 
