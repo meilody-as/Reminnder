@@ -1,130 +1,74 @@
-/**
- * send.js
- * Reminder otomatis + history notifikasi
- * Jalan via GitHub Actions
- */
+const axios = require('axios');
 
-const fs = require('fs');
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
-/* ===== CONFIG ===== */
+// 1. Ambil Variabel Lingkungan (Environment Variables)
+const BIN_ID = process.env.BIN_ID;
+const MASTER_KEY = process.env.MASTER_KEY;
 const BOT_TOKEN = process.env.BOT_TOKEN;
-if (!BOT_TOKEN) {
-  console.error('❌ BOT_TOKEN tidak ditemukan');
-  process.exit(1);
-}
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+const CHAT_ID = process.env.CHAT_ID;
 
-/* ===== LOAD DATA ===== */
-const raw = fs.readFileSync('reminders.json', 'utf8');
-const data = JSON.parse(raw);
+// Fungsi untuk menghitung selisih hari
+const getDaysDifference = (dateString) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset jam ke 00:00:00 supaya akurat
+  const targetDate = new Date(dateString);
+  
+  // Selisih waktu dalam milidetik
+  const diffTime = targetDate - today;
+  // Konversi ke hari
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  return diffDays;
+};
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+// 2. Fungsi Utama
+async function sendReminders() {
+  try {
+    console.log("Mengambil data dari JSONBin...");
+    
+    // Ambil Data
+    const response = await axios.get(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': MASTER_KEY }
+    });
 
-/* ===== HELPERS ===== */
-function addPeriod(startDate, value, unit) {
-  const d = new Date(startDate);
-  if (unit === 'tahun') d.setFullYear(d.getFullYear() + value);
-  if (unit === 'bulan') d.setMonth(d.getMonth() + value);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+    const reminders = response.data.record || [];
+    console.log(`Total reminder ditemukan: ${reminders.length}`);
 
-function formatDate(d) {
-  return d.toISOString().slice(0, 10);
-}
+    // Looping Reminder
+    for (const r of reminders) {
+      if (!r.due) continue; // Skip jika tidak ada tanggal
 
-/* ===== MAIN LOGIC ===== */
-(async () => {
-  let historyChanged = false;
+      const daysLeft = getDaysDifference(r.due);
+      const customDays = r.custom_reminder || []; // Array [30, 7, 1]
 
-  for (const item of data.items) {
-    // pastikan history ada
-    item.history = item.history || [];
+      // Logika: Kirim jika Hari Ini (0) ATAU hari ini ada di daftar H-Minus (customDays)
+      if (daysLeft === 0 || customDays.includes(daysLeft)) {
+        
+        const message = `
+🔔 PENGINGAT OTOMATIS
 
-    // hitung jatuh tempo
-    const dueDate = addPeriod(
-      item.start_date,
-      item.periode.value,
-      item.periode.unit
-    );
+📝 Item: ${r.nama}
+👤 Pemilik: ${r.pemilik || '-'}
+📅 Jatuh Tempo: ${r.due}
+⏰ Tersisa: ${daysLeft} hari lagi.
 
-    for (const days of item.notify_before) {
-      const notifyDate = new Date(dueDate);
-      notifyDate.setDate(dueDate.getDate() - days);
+Mohon segera diperiksa!
+        `.trim();
 
-      if (notifyDate.getTime() !== today.getTime()) continue;
-
-      const notifyDateStr = formatDate(notifyDate);
-
-      // cek apakah sudah pernah dikirim
-      const alreadySent = item.history.some(
-        h => h.date === notifyDateStr && h.type === `H-${days}`
-      );
-
-      if (alreadySent) {
-        console.log(
-          `⏭️ Skip (sudah terkirim): ${item.nama} H-${days}`
-        );
-        continue;
-      }
-
-      /* ===== KIRIM TELEGRAM ===== */
-      const message = `
-🔔 *Reminder ${item.kategori}*
-👤 ${item.pemilik}
-📄 ${item.nama}
-🆔 ${item.identitas || '-'}
-📅 Jatuh tempo: ${formatDate(dueDate)}
-⏳ *${days} hari lagi*
-`.trim();
-
-      try {
-        await fetch(TELEGRAM_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: item.chat_id,
-            text: message,
-            parse_mode: 'Markdown'
-          })
+        // Kirim ke Telegram
+        await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          chat_id: CHAT_ID,
+          text: message
         });
 
-        console.log(
-          `✅ Terkirim: ${item.nama} (H-${days})`
-        );
-
-        // simpan history
-        item.history.push({
-          date: notifyDateStr,
-          type: `H-${days}`
-        });
-
-        historyChanged = true;
-      } catch (err) {
-        console.error('❌ Gagal kirim Telegram:', err);
+        console.log(`✅ Notifikasi dikirim: ${r.nama} (H-${daysLeft})`);
       }
     }
+
+    console.log("Proses Selesai.");
+
+  } catch (error) {
+    console.error("Terjadi Error:", error.message);
   }
+}
 
-  /* ===== SIMPAN HISTORY (OPSIONAL OUTPUT) ===== */
-  if (historyChanged) {
-    const output = {
-      updated_at: new Date().toISOString(),
-      items: data.items
-    };
-
-    fs.writeFileSync(
-      'reminders.with-history.json',
-      JSON.stringify(output, null, 2)
-    );
-
-    console.log(
-      '📝 File reminders.with-history.json dibuat (berisi history terbaru)'
-    );
-  } else {
-    console.log('ℹ️ Tidak ada notifikasi hari ini');
-  }
-})();
+// Jalankan Fungsi
+sendReminders();
